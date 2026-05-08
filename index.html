@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Карта лифтов с рекламой</title>
+
+  <!-- Leaflet: карта OpenStreetMap -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand__icon">↟</div>
+        <div>
+          <h1>Карта лифтов</h1>
+          <p>Отметки размещения рекламы</p>
+        </div>
+      </div>
+
+      <section class="card">
+        <h2>Добавить адрес</h2>
+        <p class="muted">
+          Введи адрес в Оренбурге или поставь точку кликом по карте.
+        </p>
+
+        <form id="add-form" class="add-form">
+          <input
+            id="address-input"
+            type="text"
+            autocomplete="off"
+            placeholder="Например: Терешковой, 10"
+          />
+          <button type="submit">Найти и добавить</button>
+        </form>
+
+        <button id="click-add-btn" class="ghost-button" type="button">
+          Поставить точку кликом по карте
+        </button>
+
+        <div id="add-hint" class="hint hidden">
+          Режим добавления включён. Нажми на нужное место на карте.
+        </div>
+      </section>
+
+      <section class="stats">
+        <div class="stat">
+          <span id="total-count">0</span>
+          <p>Всего</p>
+        </div>
+        <div class="stat stat--green">
+          <span id="placed-count">0</span>
+          <p>Размещена</p>
+        </div>
+        <div class="stat stat--gray">
+          <span id="not-placed-count">0</span>
+          <p>Не размещена</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Адреса</h2>
+          <select id="filter-select" aria-label="Фильтр адресов">
+            <option value="all">Все</option>
+            <option value="placed">Размещена</option>
+            <option value="not_placed">Не размещена</option>
+          </select>
+        </div>
+
+        <input
+          id="search-input"
+          class="search-input"
+          type="text"
+          autocomplete="off"
+          placeholder="Поиск по адресу"
+        />
+
+        <div id="address-list" class="address-list"></div>
+      </section>
+
+      <section class="card card--danger">
+        <h2>Действия</h2>
+        <button id="reset-statuses-btn" class="danger-button" type="button">
+          Сбросить все отметки
+        </button>
+
+        <div class="backup-actions">
+          <button id="export-btn" class="ghost-button" type="button">
+            Экспорт JSON
+          </button>
+
+          <label class="import-label">
+            Импорт JSON
+            <input id="import-input" type="file" accept="application/json" />
+          </label>
+        </div>
+
+        <p class="muted small">
+          Сохранение идёт в localStorage этого браузера. Для переноса на другой
+          телефон/ПК используй экспорт и импорт JSON.
+        </p>
+      </section>
+    </aside>
+
+    <main class="map-wrap">
+      <div class="map-topbar">
+        <div>
+          <strong>Оренбург</strong>
+          <span>карта рекламных лифтов</span>
+        </div>
+        <button id="locate-btn" type="button">Моё место</button>
+      </div>
+
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <div id="manual-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal__content">
+      <button id="modal-close" class="modal__close" type="button">×</button>
+      <h2>Добавить точку</h2>
+      <p id="manual-coords" class="muted"></p>
+
+      <label class="field">
+        <span>Адрес</span>
+        <input
+          id="manual-address-input"
+          type="text"
+          placeholder="Например: ул. Салмышская, 45"
+        />
+      </label>
+
+      <div class="modal__actions">
+        <button id="manual-save-btn" type="button">Добавить</button>
+        <button id="manual-cancel-btn" class="ghost-button" type="button">
+          Отмена
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="./points.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
