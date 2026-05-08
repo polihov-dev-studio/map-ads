@@ -1,15 +1,21 @@
-const STORAGE_KEY = "elevator_ads_map_points_v1";
+const STORAGE_KEY = "elevator_ads_map_points_v2_yandex";
+const OLD_STORAGE_KEY = "elevator_ads_map_points_v1";
 const ORENBURG_CENTER = [51.7682, 55.0969];
+const ORENBURG_BOUNDS = [
+  [51.58, 54.72],
+  [51.98, 55.52]
+];
 
 const STATUS = {
   PLACED: "placed",
   NOT_PLACED: "not_placed"
 };
 
+let map = null;
 let points = [];
 let markers = new Map();
 let clickAddMode = false;
-let manualLatLng = null;
+let manualCoords = null;
 let toastTimer = null;
 
 const els = {
@@ -36,21 +42,29 @@ const els = {
   toast: document.getElementById("toast")
 };
 
-const map = L.map("map", {
-  zoomControl: true
-}).setView(ORENBURG_CENTER, 12);
-
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "&copy; OpenStreetMap"
-}).addTo(map);
-
-init();
+if (window.ymaps) {
+  ymaps.ready(init, onYandexMapError);
+} else {
+  onYandexMapError();
+}
 
 function init() {
-  points = loadPoints();
-  renderAll();
+  map = new ymaps.Map("map", {
+    center: ORENBURG_CENTER,
+    zoom: 12,
+    controls: ["zoomControl", "typeSelector", "fullscreenControl"]
+  }, {
+    suppressMapOpenBlock: true,
+    yandexMapDisablePoiInteractivity: false
+  });
 
+  points = loadPoints();
+  bindEvents();
+  renderAll();
+  fitMapToPointsIfNeeded();
+}
+
+function bindEvents() {
   els.addForm.addEventListener("submit", onAddAddressSubmit);
   els.clickAddBtn.addEventListener("click", toggleClickAddMode);
   els.filterSelect.addEventListener("change", renderList);
@@ -64,12 +78,17 @@ function init() {
   els.manualCancelBtn.addEventListener("click", closeManualModal);
   els.modalClose.addEventListener("click", closeManualModal);
 
-  map.on("click", onMapClick);
+  map.events.add("click", onMapClick);
+}
+
+function onYandexMapError() {
+  console.error("Yandex Maps API failed to load.");
+  showToast("Не удалось загрузить Яндекс.Карты. Проверь интернет и API-ключ.");
 }
 
 function loadPoints() {
   const defaultPoints = normalizePoints(window.DEFAULT_POINTS || []);
-  const savedRaw = localStorage.getItem(STORAGE_KEY);
+  const savedRaw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(OLD_STORAGE_KEY);
 
   if (!savedRaw) {
     return defaultPoints;
@@ -122,33 +141,27 @@ function renderAll() {
 
 function renderMarkers() {
   for (const marker of markers.values()) {
-    marker.remove();
+    map.geoObjects.remove(marker);
   }
   markers.clear();
 
   for (const point of points) {
-    const marker = L.marker([point.lat, point.lng], {
-      icon: makeIcon(point.status)
-    }).addTo(map);
+    const marker = new ymaps.Placemark(
+      [point.lat, point.lng],
+      {
+        hintContent: point.address,
+        balloonContent: makePopupHtml(point)
+      },
+      {
+        preset: "islands#circleDotIcon",
+        iconColor: point.status === STATUS.PLACED ? "#28d17c" : "#8b95a7",
+        balloonPanelMaxMapArea: 0
+      }
+    );
 
-    marker.bindPopup(makePopupHtml(point));
+    map.geoObjects.add(marker);
     markers.set(point.id, marker);
   }
-}
-
-function makeIcon(status) {
-  const className =
-    status === STATUS.PLACED
-      ? "marker-dot marker-dot--placed"
-      : "marker-dot marker-dot--not";
-
-  return L.divIcon({
-    className: "",
-    html: `<div class="${className}"></div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -12]
-  });
 }
 
 function makePopupHtml(point) {
@@ -161,13 +174,13 @@ function makePopupHtml(point) {
       <p>Статус: <span class="badge ${badgeClass}">${statusText}</span></p>
 
       <div class="popup-actions">
-        <button type="button" onclick="setPointStatus('${point.id}', '${STATUS.PLACED}')">
+        <button type="button" onclick="setPointStatus('${escapeJs(point.id)}', '${STATUS.PLACED}')">
           Размещена
         </button>
-        <button class="ghost-button" type="button" onclick="setPointStatus('${point.id}', '${STATUS.NOT_PLACED}')">
+        <button class="ghost-button" type="button" onclick="setPointStatus('${escapeJs(point.id)}', '${STATUS.NOT_PLACED}')">
           Не размещена
         </button>
-        <button class="popup-delete" type="button" onclick="deletePoint('${point.id}')">
+        <button class="popup-delete" type="button" onclick="deletePoint('${escapeJs(point.id)}')">
           Удалить точку
         </button>
       </div>
@@ -203,7 +216,7 @@ function renderList() {
       const badgeClass = point.status === STATUS.PLACED ? "badge--placed" : "badge--not";
 
       return `
-        <button class="address-item" type="button" data-id="${point.id}">
+        <button class="address-item" type="button" data-id="${escapeHtml(point.id)}">
           <span class="address-item__top">
             <strong>${escapeHtml(point.address)}</strong>
             <span class="badge ${badgeClass}">${getStatusText(point.status)}</span>
@@ -223,12 +236,13 @@ function focusPoint(id) {
   const point = points.find((item) => item.id === id);
   const marker = markers.get(id);
 
-  if (!point || !marker) return;
+  if (!point || !marker || !map) return;
 
-  map.setView([point.lat, point.lng], Math.max(map.getZoom(), 16), {
-    animate: true
+  map.setCenter([point.lat, point.lng], Math.max(map.getZoom(), 16), {
+    duration: 300
   });
-  marker.openPopup();
+
+  setTimeout(() => marker.balloon.open(), 320);
 }
 
 async function onAddAddressSubmit(event) {
@@ -258,7 +272,7 @@ async function onAddAddressSubmit(event) {
     });
 
     els.addressInput.value = "";
-    map.setView([result.lat, result.lng], 16);
+    map.setCenter([result.lat, result.lng], 16, { duration: 300 });
     showToast("Адрес добавлен.");
   } catch (error) {
     console.error(error);
@@ -273,32 +287,25 @@ async function geocodeAddress(rawAddress) {
     ? rawAddress
     : `Оренбург, ${rawAddress}`;
 
-  const url = new URL("https://nominatim.openstreetmap.org/search");
-  url.searchParams.set("format", "json");
-  url.searchParams.set("q", query);
-  url.searchParams.set("limit", "1");
-  url.searchParams.set("countrycodes", "ru");
-  url.searchParams.set("addressdetails", "1");
-
-  const response = await fetch(url.toString(), {
-    headers: {
-      Accept: "application/json"
-    }
+  const result = await ymaps.geocode(query, {
+    results: 1,
+    boundedBy: ORENBURG_BOUNDS,
+    strictBounds: false
   });
 
-  if (!response.ok) {
-    throw new Error("Geocoding failed");
-  }
+  const firstGeoObject = result.geoObjects.get(0);
+  if (!firstGeoObject) return null;
 
-  const data = await response.json();
-  if (!Array.isArray(data) || data.length === 0) return null;
-
-  const item = data[0];
+  const coords = firstGeoObject.geometry.getCoordinates();
+  const address =
+    typeof firstGeoObject.getAddressLine === "function"
+      ? firstGeoObject.getAddressLine()
+      : firstGeoObject.properties.get("text") || query;
 
   return {
-    address: item.display_name || query,
-    lat: Number(item.lat),
-    lng: Number(item.lon)
+    address,
+    lat: Number(coords[0]),
+    lng: Number(coords[1])
   };
 }
 
@@ -315,12 +322,12 @@ function toggleClickAddMode() {
 function onMapClick(event) {
   if (!clickAddMode) return;
 
-  manualLatLng = event.latlng;
-  openManualModal(event.latlng);
+  manualCoords = event.get("coords");
+  openManualModal(manualCoords);
 }
 
-function openManualModal(latlng) {
-  els.manualCoords.textContent = `Координаты: ${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+function openManualModal(coords) {
+  els.manualCoords.textContent = `Координаты: ${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}`;
   els.manualAddressInput.value = "";
   els.manualModal.classList.remove("hidden");
 
@@ -329,11 +336,11 @@ function openManualModal(latlng) {
 
 function closeManualModal() {
   els.manualModal.classList.add("hidden");
-  manualLatLng = null;
+  manualCoords = null;
 }
 
 function saveManualPoint() {
-  if (!manualLatLng) return;
+  if (!manualCoords) return;
 
   const address = els.manualAddressInput.value.trim();
   if (!address) {
@@ -343,8 +350,8 @@ function saveManualPoint() {
 
   addPoint({
     address: /оренбург/i.test(address) ? address : `Оренбург, ${address}`,
-    lat: manualLatLng.lat,
-    lng: manualLatLng.lng
+    lat: manualCoords[0],
+    lng: manualCoords[1]
   });
 
   closeManualModal();
@@ -366,6 +373,11 @@ function addPoint({ address, lat, lng }) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
+
+  if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
+    showToast("Не удалось определить координаты точки.");
+    return;
+  }
 
   points.push(point);
   savePoints();
@@ -407,7 +419,7 @@ window.deletePoint = function deletePoint(id) {
   points = points.filter((item) => item.id !== id);
   savePoints();
   renderAll();
-  map.closePopup();
+  if (map) map.balloon.close();
   showToast("Точка удалена.");
 };
 
@@ -467,9 +479,7 @@ function importJson(event) {
       points = imported;
       savePoints();
       renderAll();
-
-      const bounds = L.latLngBounds(points.map((point) => [point.lat, point.lng]));
-      map.fitBounds(bounds.pad(0.18));
+      fitMapToPointsIfNeeded(true);
 
       showToast("JSON импортирован.");
     } catch (error) {
@@ -483,6 +493,23 @@ function importJson(event) {
   reader.readAsText(file);
 }
 
+function fitMapToPointsIfNeeded(force = false) {
+  if (!map || points.length === 0) return;
+
+  if (points.length === 1) {
+    if (force) focusPoint(points[0].id);
+    return;
+  }
+
+  if (force || points.length > 1) {
+    const bounds = ymaps.util.bounds.fromPoints(points.map((point) => [point.lat, point.lng]));
+    map.setBounds(bounds, {
+      checkZoomRange: true,
+      zoomMargin: [80, 80, 80, 80]
+    });
+  }
+}
+
 function locateUser() {
   if (!navigator.geolocation) {
     showToast("Геолокация не поддерживается браузером.");
@@ -491,8 +518,8 @@ function locateUser() {
 
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      const latlng = [position.coords.latitude, position.coords.longitude];
-      map.setView(latlng, 16);
+      const coords = [position.coords.latitude, position.coords.longitude];
+      map.setCenter(coords, 16, { duration: 300 });
       showToast("Карта перемещена к твоему местоположению.");
     },
     () => {
@@ -539,4 +566,8 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function escapeJs(value) {
+  return String(value).replaceAll("\\", "\\\\").replaceAll("'", "\\'");
 }

@@ -4,12 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Карта лифтов с рекламой</title>
-
-  <!-- Leaflet: карта OpenStreetMap -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
@@ -112,7 +106,7 @@
       <div class="map-topbar">
         <div>
           <strong>Оренбург</strong>
-          <span>карта рекламных лифтов</span>
+          <span>карта рекламных лифтов на Яндекс.Картах</span>
         </div>
         <button id="locate-btn" type="button">Моё место</button>
       </div>
@@ -147,7 +141,7 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://api-maps.yandex.ru/2.1/?apikey=62bb0bf1-3235-41f0-b3de-b09cfed11b52&lang=ru_RU" type="text/javascript"></script>
   <script src="./points.js"></script>
   <script src="./app.js"></script>
 </body>

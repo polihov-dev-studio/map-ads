@@ -391,21 +391,25 @@ button:hover,
   box-shadow: none;
 }
 
-.leaflet-control-attribution {
-  font-size: 10px;
+#map [class*="balloon__content"] {
+  color: var(--text) !important;
+  background: rgba(18, 22, 31, 0.96) !important;
+  border-radius: 16px !important;
 }
 
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip {
-  color: var(--text);
-  background: rgba(18, 22, 31, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.3);
+#map [class*="balloon__layout"] {
+  background: rgba(18, 22, 31, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.3) !important;
 }
 
-.leaflet-popup-content {
-  width: 260px !important;
-  margin: 14px;
+#map [class*="balloon__tail"]::after {
+  background: rgba(18, 22, 31, 0.96) !important;
+}
+
+#map [class*="balloon__close-button"] {
+  opacity: 0.85 !important;
 }
 
 .popup-card h3 {
