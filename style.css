@@ -391,6 +391,12 @@ button:hover,
   box-shadow: none;
 }
 
+#locate-btn:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+
 #map [class*="balloon__content"] {
   color: var(--text) !important;
   background: rgba(18, 22, 31, 0.96) !important;

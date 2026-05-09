@@ -17,6 +17,11 @@ let markers = new Map();
 let clickAddMode = false;
 let manualCoords = null;
 let toastTimer = null;
+let geoWatchId = null;
+let userLocationMarker = null;
+let userAccuracyCircle = null;
+let lastUserCoords = null;
+let hasCenteredOnUser = false;
 
 const els = {
   addForm: document.getElementById("add-form"),
@@ -62,6 +67,7 @@ function init() {
   bindEvents();
   renderAll();
   fitMapToPointsIfNeeded();
+  tryAutoStartGeolocation();
 }
 
 function bindEvents() {
@@ -516,21 +522,137 @@ function locateUser() {
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const coords = [position.coords.latitude, position.coords.longitude];
-      map.setCenter(coords, 16, { duration: 300 });
-      showToast("Карта перемещена к твоему местоположению.");
-    },
-    () => {
-      showToast("Не удалось получить местоположение.");
-    },
+  if (geoWatchId !== null) {
+    if (lastUserCoords) {
+      map.setCenter(lastUserCoords, Math.max(map.getZoom(), 16), { duration: 300 });
+      showToast("Геолокация уже включена. Метка обновляется автоматически.");
+    } else {
+      showToast("Ищу местоположение...");
+    }
+    return;
+  }
+
+  startUserTracking();
+}
+
+function tryAutoStartGeolocation() {
+  if (!navigator.geolocation || !navigator.permissions) return;
+
+  navigator.permissions
+    .query({ name: "geolocation" })
+    .then((permission) => {
+      if (permission.state === "granted" && geoWatchId === null) {
+        startUserTracking();
+      }
+    })
+    .catch(() => {
+      // В некоторых браузерах Permissions API может быть недоступен или ограничен.
+    });
+}
+
+function startUserTracking() {
+  hasCenteredOnUser = false;
+  els.locateBtn.disabled = true;
+  els.locateBtn.textContent = "Ищу...";
+
+  geoWatchId = navigator.geolocation.watchPosition(
+    updateUserLocation,
+    onUserLocationError,
     {
       enableHighAccuracy: true,
-      timeout: 8000
+      maximumAge: 1000,
+      timeout: 12000
     }
   );
 }
+
+function updateUserLocation(position) {
+  const coords = [position.coords.latitude, position.coords.longitude];
+  const accuracy = Number(position.coords.accuracy) || 0;
+
+  lastUserCoords = coords;
+  renderUserLocation(coords, accuracy);
+
+  if (!hasCenteredOnUser) {
+    map.setCenter(coords, Math.max(map.getZoom(), 16), { duration: 300 });
+    hasCenteredOnUser = true;
+    showToast("Геолокация включена. Синяя метка будет двигаться вместе с тобой.");
+  }
+
+  els.locateBtn.disabled = false;
+  els.locateBtn.textContent = "Где я?";
+}
+
+function renderUserLocation(coords, accuracy) {
+  if (!map) return;
+
+  if (!userLocationMarker) {
+    userLocationMarker = new ymaps.Placemark(
+      coords,
+      {
+        hintContent: "Ты здесь",
+        balloonContent: "Твоё текущее местоположение"
+      },
+      {
+        preset: "islands#circleDotIcon",
+        iconColor: "#2d8cff",
+        zIndex: 9999,
+        zIndexActive: 10000
+      }
+    );
+
+    map.geoObjects.add(userLocationMarker);
+  } else {
+    userLocationMarker.geometry.setCoordinates(coords);
+  }
+
+  if (userAccuracyCircle) {
+    map.geoObjects.remove(userAccuracyCircle);
+    userAccuracyCircle = null;
+  }
+
+  if (accuracy > 0) {
+    userAccuracyCircle = new ymaps.Circle(
+      [coords, Math.min(accuracy, 1000)],
+      {
+        hintContent: `Точность примерно ${Math.round(accuracy)} м`
+      },
+      {
+        fillColor: "#2d8cff22",
+        strokeColor: "#2d8cff88",
+        strokeWidth: 2,
+        zIndex: 9998
+      }
+    );
+
+    map.geoObjects.add(userAccuracyCircle);
+  }
+}
+
+function onUserLocationError(error) {
+  console.error(error);
+
+  if (geoWatchId !== null) {
+    navigator.geolocation.clearWatch(geoWatchId);
+    geoWatchId = null;
+  }
+
+  els.locateBtn.disabled = false;
+  els.locateBtn.textContent = "Где я?";
+
+  if (error && error.code === error.PERMISSION_DENIED) {
+    showToast("Геолокация запрещена. Разреши доступ к местоположению в браузере.");
+    return;
+  }
+
+  showToast("Не удалось получить местоположение.");
+}
+
+window.addEventListener("beforeunload", () => {
+  if (geoWatchId !== null && navigator.geolocation) {
+    navigator.geolocation.clearWatch(geoWatchId);
+  }
+});
 
 function setButtonLoading(button, isLoading, text = "") {
   if (!button) return;
