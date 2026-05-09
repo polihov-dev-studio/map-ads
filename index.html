@@ -3,32 +3,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Карта лифтов с рекламой</title>
+  <title>Оренбург / Лифт</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
-      <div class="brand">
+      <!-- <div class="brand">
         <div class="brand__icon">↟</div>
         <div>
           <h1>Карта лифтов</h1>
           <p>Отметки размещения рекламы</p>
         </div>
-      </div>
+      </div> -->
 
       <section class="card">
         <h2>Добавить адрес</h2>
-        <p class="muted">
+        <!-- <p class="muted">
           Введи адрес в Оренбурге или поставь точку кликом по карте.
-        </p>
+        </p> -->
 
         <form id="add-form" class="add-form">
           <input
             id="address-input"
             type="text"
             autocomplete="off"
-            placeholder="Например: Терешковой, 10"
+            placeholder="Введите адрес"
           />
           <button type="submit">Найти и добавить</button>
         </form>
@@ -81,7 +81,7 @@
       <section class="card card--danger">
         <h2>Действия</h2>
         <button id="reset-statuses-btn" class="danger-button" type="button">
-          Сбросить все отметки
+          Сбросить все статусы
         </button>
 
         <div class="backup-actions">
