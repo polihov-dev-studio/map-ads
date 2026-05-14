@@ -4,7 +4,7 @@
   Статусы по этим точкам будут сохраняться отдельно в localStorage.
 */
 
-const DEFAULT_POINTS = [
+window.DEFAULT_POINTS = [
   {
     "id": "ftown-0001",
     "address": "Оренбург, улица Ямашева, 8",
